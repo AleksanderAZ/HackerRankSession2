@@ -9,44 +9,40 @@
 import Foundation
 
 func twoPluses(grid: [String]) -> Int {
-    struct PointPlus {
-        var r: Int = 0
-        var c: Int = 0
-    }
-    let n = grid.count - 1
-    guard n > -1 else { return 0 }
-    guard n > 0 else {
-        return 0
-    }
-    let m = grid[0].count - 1
-    guard m > -1 else { return 0 }
+
+    let nR = grid.count - 1
+    guard nR > -1 else { return 0 }
+    guard nR > 0 else { return 0 }
+    let mC = grid[0].count - 1
+    guard mC > -1 else { return 0 }
     var linePlus = [Int]()
     var rPlus = [Int]()
     var cPlus = [Int]()
     var maxFindPlus: Int = 0
-    
-    
+    let startIndex = grid[0].startIndex
     var r = 1
     var c = 1
-    
-    while (r < n) {
-        while (c < m) {
-            if grid[r][grid[r].index(grid[r].startIndex, offsetBy: c)] == "G" {
+    while (r < nR) {
+        c = 1
+        while (c < mC) {
+            if grid[r][grid[r].index(startIndex, offsetBy: c)] == "G" {
                 maxFindPlus = 1
                 var ru = r - 1
                 var rd = r + 1
                 var cl = c - 1
                 var cr = c + 1
-                while (ru >= 0 && rd <= n && cl >= 0 && cr <= m) {
-                    if (grid[ru][grid[ru].index(grid[ru].startIndex, offsetBy: c)] == "G" &&  grid[rd][grid[rd].index(grid[rd].startIndex, offsetBy: c)] == "G" && grid[r][grid[r].index(grid[r].startIndex, offsetBy: cl)] == "G" && grid[r][grid[r].index(grid[r].startIndex, offsetBy: cr)] == "G") {
+                while (ru >= 0 && rd <= nR && cl >= 0 && cr <= mC) {
+                    if (grid[ru][grid[ru].index(startIndex, offsetBy: c)] == "G" &&  grid[rd][grid[rd].index(startIndex, offsetBy: c)] == "G" && grid[r][grid[r].index(startIndex, offsetBy: cl)] == "G" && grid[r][grid[r].index(startIndex, offsetBy: cr)] == "G") {
                         maxFindPlus += 1
+                    }
+                    else {
+                        break
                     }
                     ru = ru - 1
                     rd = rd + 1
                     cl = cl - 1
                     cr = cr + 1
                 }
-                
                 linePlus.append(1)
                 rPlus.append(r)
                 cPlus.append(c)
@@ -67,62 +63,136 @@ func twoPluses(grid: [String]) -> Int {
         }
         r += 1
     }
-    c = 0
-    while (c <= m) {
-        if grid[0][grid[0].index(grid[0].startIndex, offsetBy: c)] == "G" {
+    for i in 0...mC {
+        if grid[0][grid[0].index(startIndex, offsetBy: i)] == "G" {
             linePlus.append(1)
             rPlus.append(0)
-            cPlus.append(c)
+            cPlus.append(i)
         }
-        if grid[n][grid[n].index(grid[n].startIndex, offsetBy: c)] == "G" {
+        if grid[nR][grid[nR].index(startIndex, offsetBy: i)] == "G" {
             linePlus.append(1)
-            rPlus.append(n)
-            cPlus.append(c)
+            rPlus.append(nR)
+            cPlus.append(i)
         }
-        c += 1
     }
-    r = 1
-    while (r <= n) {
-        if grid[r][grid[r].index(grid[r].startIndex, offsetBy: 0)] == "G" {
+    for i in 0...nR {
+        if grid[i][grid[i].index(startIndex, offsetBy: 0)] == "G" {
             linePlus.append(1)
-            rPlus.append(r)
+            rPlus.append(i)
             cPlus.append(0)
         }
-        if grid[r][grid[r].index(grid[r].startIndex, offsetBy: m)] == "G" {
+        if grid[i][grid[i].index(startIndex, offsetBy: mC)] == "G" {
             linePlus.append(1)
-            rPlus.append(r)
-            cPlus.append(m)
+            rPlus.append(i)
+            cPlus.append(mC)
         }
-        r += 1
     }
-
-    
-    r = 0
+    var maxMult = 0
     var mult = 0
-    
+    r = 0
     while(r < linePlus.count - 1) {
-        c = r + 1
-        while(c < linePlus.count) {
-            
-            
-            
-            c += 1
+        while (linePlus[r] >= 1) {
+            let lOne = linePlus[r] - 1
+            let rOne = rPlus[r]
+            let cOne = cPlus[r]
+            let luROne = rOne - lOne
+            let luCOne = cOne - lOne
+            let ldROne = rOne + lOne
+            let ruCOne = cOne + lOne
+            c = r + 1
+            while(c < linePlus.count) {
+                var linePlus = linePlus[c]
+                let rTwo = rPlus[c]
+                let cTwo = cPlus[c]
+                c += 1
+                while (linePlus >= 1) {
+                    let lTwo = linePlus - 1
+                    let luRTwo = rTwo - lTwo
+                    let luCTwo = cTwo - lTwo
+                    let ldRTwo = rTwo + lTwo
+                    let ruCTwo = cTwo + lTwo
+                    linePlus -= 1
+                    if (rTwo == rOne && (luCTwo >= luCOne &&  luCTwo <= ruCOne || ruCTwo >= luCOne && ruCTwo <= ruCOne)) {
+                        continue
+                    }
+                    if (cTwo == cOne && (luRTwo >= luROne &&  luRTwo <= ldROne || ldRTwo >= luROne && ldRTwo <= ldROne)) {
+                        continue
+                    }
+                    if (rOne >= luRTwo && rOne <= ldRTwo && cTwo >= luCOne  && cTwo <= ruCOne) {
+                        continue
+                    }
+                    if (rTwo >= luROne && rTwo <= ldROne && cOne >= luCTwo && cOne <= ruCTwo) {
+                        continue
+                    }
+                    mult = (lOne * 4 + 1)  * (lTwo * 4 + 1)
+                    if (maxMult < mult) {maxMult = mult}
+                }
+            }
+            linePlus[r] -= 1
         }
         r += 1
     }
-    
-    
-    print(linePlus)
-    print(rPlus)
-    print(cPlus)
-    
-    return 0
+    return maxMult
 }
+
+//------Test-------
 
 let grid = ["BGBBGB",
             "GGGGGG",
-            "BGBBGB"]//,
-    //        "GGGGGG",
-     //       "BGBBGB",
-      //      "BGBBGB"]
+            "BGBBGB",
+            "GGGGGG",
+            "BGBBGB",
+            "BGBBGB"]
+
+let grid2 = ["GGGGGG",
+             "GBBBGB",
+             "GGGGGG",
+             "GGBBGB",
+             "GGGGGG"]
+
+let grid1 = ["BBBBBB",
+             "BBBBGB",
+             "BBBGGG",
+             "BBBBGB",
+             "BBBBBB"]
+
+let g = ["GGGGGGGG",
+         "GBGBGGBG",
+         "GBGBGGBG",
+         "GGGGGGGG",
+         "GBGBGGBG",
+         "GGGGGGGG",
+         "GBGBGGBG",
+         "GGGGGGGG"]
+
+let g1 = [  "GGGGGGGGGGGG",
+            "GBGGBBBBBBBG",
+            "GBGGBBBBBBBG",
+            "GGGGGGGGGGGG",
+            "GGGGGGGGGGGG",
+            "GGGGGGGGGGGG",
+            "GGGGGGGGGGGG",
+            "GBGGBBBBBBBG",
+            "GBGGBBBBBBBG",
+            "GBGGBBBBBBBG",
+            "GGGGGGGGGGGG",
+            "GBGGBBBBBBBG"]
+
+let g2 = [  "GGGGGGGGGGGG",
+            "G xG       G",
+            "G xG       G",
+            "xxxxxGGGGGGG",
+            "GGxoGGGGGGGG",
+            "GGxoGGGGGGGG",
+            "GoooooGGGGGG",
+            "G Go       G",
+            "G Go       G",
+            "G GG       G",
+            "GGGGGGGGGGGG",
+            "G GG       G"]
+
 print(twoPluses(grid: grid))
+print(twoPluses(grid: grid1))
+print(twoPluses(grid: grid2))
+print(twoPluses(grid: g))
+print(twoPluses(grid: g1))
