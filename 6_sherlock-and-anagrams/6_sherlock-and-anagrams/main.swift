@@ -12,24 +12,30 @@ func sherlockAndAnagrams(s: String) -> Int {
     
     let countS = s.count - 1
     var sumCount = 0
-    for prefSub in 1...countS {
-        let pString = s.prefix(prefSub)
-        let countSubPref = pString.count
-        for suffSub in 1...countSubPref {
+    
+    var findString = s
+    
+    while findString.count > 1 {
+        var sum = 0
+        var number = 0
+        let p = findString.removeFirst()
+        while let index = findString.firstIndex(of: p) {
+            findString.remove(at: index)
+            number += 1
+            sum = sum + number
+        }
+        sumCount = sumCount + sum
+    }
+    
+    for prefSub in 2...countS {
+        for suffSub in 2...prefSub {
             let countSubSuffix = countS - prefSub + suffSub
-            if countSubSuffix < suffSub { break }
-            let spString = pString.suffix(suffSub)
-            let sString = s.suffix(countSubSuffix)
-            for rangeFind in 0...(countSubSuffix-suffSub) {
-                var findSString = String(sString.suffix(countSubSuffix-rangeFind).prefix(suffSub))
+            for rangeFind in 0...(countS - prefSub) {
+                var findSString = s.suffix(countSubSuffix-rangeFind).prefix(suffSub)
                 var flagFind = true
-                for c in String(spString) {
+                for c in s.prefix(prefSub).suffix(suffSub) {
                     if let index = findSString.firstIndex(of: c) {
-                        let count = findSString.count
-                        let distans = findSString.distance(from: findSString.startIndex, to: index)
-                        let l = String(findSString.prefix(distans))
-                        let r = String(findSString.suffix(count - distans - 1))
-                        findSString = String(l + r)
+                        findSString.remove(at: index)
                     }
                     else {
                         flagFind = false
@@ -45,5 +51,34 @@ func sherlockAndAnagrams(s: String) -> Int {
     return sumCount
 }
 
-let s = "cdavcd"
+func sherlockAndAnagrams1(s: String) -> Int {
+    
+    let countS = s.count - 1
+    var sumCount = 0
+    
+    for prefSub in 1...countS {
+        for suffSub in 1...prefSub {
+            let countSubSuffix = countS - prefSub + suffSub
+            for rangeFind in 0...(countS - prefSub) {
+                var findSString = s.suffix(countSubSuffix-rangeFind).prefix(suffSub)
+                var flagFind = true
+                for c in s.prefix(prefSub).suffix(suffSub) {
+                    if let index = findSString.firstIndex(of: c) {
+                        findSString.remove(at: index)
+                    }
+                    else {
+                        flagFind = false
+                        break
+                    }
+                }
+                if flagFind == true {
+                    sumCount = sumCount + 1
+                }
+            }
+        }
+    }
+    return sumCount
+}
+let s = "aaaa"
 print(sherlockAndAnagrams(s: s))
+print(sherlockAndAnagrams1(s: s))
