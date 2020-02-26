@@ -8,7 +8,101 @@
 
 import Foundation
 
-func binSum(list: [Int], _ i: Int, _ j: Int) -> Int {
+// ---- One Thread -------
+
+func binSum(list: [Int], _ i: Int, _ j: Int) -> (Int, Int, Int) {
+    guard i < j else {
+        guard i == j else { return (0, 0, 0) }
+            return (list[i], i, list[i])
+    }
+    let mid = Int((i + j) / 2)
+    let (lBinSum, lIndexSum, lItemSum) = binSum(list: list, i, mid - 1)
+    let (rBinSum, rIndexSum, rItemSum) = binSum(list: list, mid + 1, j)
+    let lsum = lIndexSum  &+ mid &+ rIndexSum
+    let sumItem = lItemSum &+ list[mid] &+ rItemSum
+    let rsum = list[mid] &+ sumItem
+    
+    return (lsum &* (i &* lBinSum &+ j &* rBinSum) &+ rsum &* (j &* lBinSum &+ i &* rBinSum), lsum, sumItem)
+}
+
+func binSum(list: [Int]) -> Int {
+    let (lBinSum, _, _) = binSum(list: list, 0, list.count - 1)
+    return lBinSum
+}
+
+//  ---------  multy Thread -----------
+
+
+func binSumMultyTred(list: [Int], _ i: Int, _ j: Int, queue: OperationQueue, blocksSize: Int) -> (Int, Int, Int) {
+    guard i < j else {
+        guard i == j else { return (0, 0, 0) }
+            return (list[i], i, list[i])
+    }
+    let mid = Int((i + j) / 2)
+
+    var lBinSum: Int
+    var lIndexSum: Int
+    var lItemSum: Int
+    var rBinSum: Int
+    var rIndexSum: Int
+    var rItemSum: Int
+    
+    if j - i > blocksSize {
+        let (typlBinSum, typlIndexSum, typlItemSum) = binSumMultyTred(list: list, i, mid - 1, queue: queue, blocksSize: blocksSize)
+        let (typrBinSum, typrIndexSum, typrItemSum) = binSumMultyTred(list: list, mid + 1, j, queue: queue, blocksSize: blocksSize)
+        
+        lBinSum = typlBinSum
+        lIndexSum = typlIndexSum
+        lItemSum = typlItemSum
+        rBinSum = typrBinSum
+        rIndexSum = typrIndexSum
+        rIndexSum = typrIndexSum
+        rItemSum = typrItemSum
+    }
+    else {
+        let (typlBinSum, typlIndexSum, typlItemSum) = binSum(list: list, i, mid - 1)
+        let (typrBinSum, typrIndexSum, typrItemSum) = binSum(list: list, mid + 1, j)
+        lBinSum = typlBinSum
+        lIndexSum = typlIndexSum
+        lItemSum = typlItemSum
+        rBinSum = typrBinSum
+        rIndexSum = typrIndexSum
+        rIndexSum = typrIndexSum
+        rItemSum = typrItemSum
+    }
+    
+    let left = sortInMultiThreads(!isBuffer, i, mid)
+           let right = sortInMultiThreads(!isBuffer, mid + 1, j)
+           queue.addOperation(left)
+           queue.addOperation(right)
+           
+           let mergeOperation = BlockOperation {
+               self.merge(isBuffer, i, mid: mid, j)
+           }
+           mergeOperation.addDependency(left)
+           mergeOperation.addDependency(right)
+           
+           return mergeOperation
+    
+    let lsum = lIndexSum  &+ mid &+ rIndexSum
+    let sumItem = lItemSum &+ list[mid] &+ rItemSum
+    let rsum = list[mid] &+ sumItem
+    
+    return (lsum &* (i &* lBinSum &+ j &* rBinSum) &+ rsum &* (j &* lBinSum &+ i &* rBinSum), lsum, sumItem)
+}
+
+func binSum(list: [Int], in numberOfThreads: Int) -> Int {
+    let blocksSize = list.count / numberOfThreads / 2
+    let queue = OperationQueue()
+    queue.maxConcurrentOperationCount = numberOfThreads
+    let (lBinSum, _, _) = binSumMultyTred(list: list, 0, list.count - 1, queue: queue, blocksSize: blocksSize)
+
+    return lBinSum
+}
+
+
+//====================Old version ===================================================
+func binSumOld(list: [Int], _ i: Int, _ j: Int) -> Int {
     guard i < j else {
         guard i == j else { return 0 }
         return list[i]
@@ -17,60 +111,15 @@ func binSum(list: [Int], _ i: Int, _ j: Int) -> Int {
     let lsum = (i...j).reduce(0) { return $0 &+ $1 }
     let rsum = list[i...j].reduce(list[mid], { return $0 &+ $1 })
 
-    //print("i=\(i) j=\(j) mid=\(mid) lsum=\(lsum) rsum=\(rsum) ")
-    return lsum &* (i &* binSum(list: list, i, mid - 1) &+ j &* binSum(list: list, mid + 1, j)) &+
-        rsum &* (j &* binSum(list: list, i, mid - 1) &+ i &* binSum(list: list, mid + 1, j))
+    return lsum &* (i &* binSumOld(list: list, i, mid - 1) &+ j &* binSumOld(list: list, mid + 1, j)) &+
+        rsum &* (j &* binSumOld(list: list, i, mid - 1) &+ i &* binSumOld(list: list, mid + 1, j))
 }
 
-func binSum(list: [Int]) -> Int {
-    return binSum(list: list, 0, list.count - 1)
-}
-//=======================================================================
-
-func binSumNew(list: [Int], _ i: Int, _ j: Int) -> (Int, Int, Int) {
-    
-   // guard i < j else {
-    //    guard i == j else { return (0, 0, 0) }
-   //         return (list[i], i, list[i])
-   // }
-    let mid = Int((i + j) / 2)
-    
-    if i == mid {
-        if i == j {
-            return (list[j], j, list[j])
-        }
-        let lsum = mid &+ j
-        let sumItem = list[mid] &+ list[j]
-        //print("i=\(i) j=\(j) mid=\(mid) lsum=\(lsum) rsum=\(rsum) ----11111")
-        return (lsum &* (j &* list[j]) &+ (list[mid] &+ sumItem) &* (i &* list[j]), lsum, sumItem)
-    }
-    
-    let (lBinSum, lIndexSum, lItemSum) = binSumNew(list: list, i, mid - 1)
-    let (rBinSum, rIndexSum, rItemSum) = binSumNew(list: list, mid + 1, j)
-    let lsum = lIndexSum  &+ mid &+ rIndexSum
-    let sumItem = lItemSum &+ list[mid] &+ rItemSum
-    let rsum = list[mid] &+ sumItem
-    //var result = 0
-    //if (i == 0) {
-    //    result = lsum &* (j &* rBinSum) &+ rsum &* (j &* lBinSum)
-   // }
-   // result = lsum &* (i &* lBinSum &+ j &* rBinSum) &+ rsum &* (j &* lBinSum &+ i &* rBinSum)
-    
-    //print("i=\(i) j=\(j) mid=\(mid) lsum=\(lsum) rsum=\(rsum) ")
-    
-    return (lsum &* (i &* lBinSum &+ j &* rBinSum) &+ rsum &* (j &* lBinSum &+ i &* rBinSum), lsum, sumItem)
+func binSumOld(list: [Int]) -> Int {
+    return binSumOld(list: list, 0, list.count - 1)
 }
 
-func binSumNew(list: [Int]) -> Int {
-    let (lBinSum, _, _) = binSumNew(list: list, 0, list.count - 1)
-    return lBinSum
-}
-
-func binSumNew(list: [Int], in numberOfThreads: Int) -> Int {
-    
-    return 0
-}
-
+//==================== Test ==========================
 var date = Date()
 let len = 10000000
 let cores = 8
@@ -87,16 +136,24 @@ var s = 0.0
 
 for _ in 1...10 {
     date = Date()
-    let rNew = binSumNew(list: pt)
+    let rNew = binSum(list: pt)
     tNew = Date().timeIntervalSince(date)
     s = s + Double(tNew)
     print("-------------rNew= \(rNew) timeNew= \(tNew)")
-    //date = Date()
-  //  let r = binSum(list: pt)
-   // let t = Date().timeIntervalSince(date)
-   // print("r=\(r) rN=\(rNew) \( r == rNew) t=\(t)  tN=\(tNew)")
+    // ------ run Old true
+    if (false) {
+        date = Date()
+        let r = binSum(list: pt)
+        let t = Date().timeIntervalSince(date)
+        print("r=\(r) rN=\(rNew) \( r == rNew) t=\(t)  tN=\(tNew)")
+    }
 }
 print("avarrage time =\(s/10)")
+
+
+
+
+
 
 //---------------------------------------------
 
@@ -198,27 +255,3 @@ func sort(list: [Int], in cores: Int) -> [Int] {
     return MergeSort.sort(list: list, in: queue, blockSize: blocksSize)
 }
 
-
-/*
-let len = 100
-let cores = 8
-
-var pt = [Int]()
-pt.reserveCapacity(len)
-
-for _ in 0...len {
-    pt.append(Int(arc4random_uniform(100000000)))
-}
-
-var date = Date()
-let mergedSorted = sort(list: pt, in: cores)
-print("Swift merge sorting in \(cores) cores algorithm with time  \(Date().timeIntervalSince(date))")
-
-date = Date()
-pt = pt.sorted()
-print("Swift standat sorting algorithm with time  \(Date().timeIntervalSince(date))")
-
-if !pt.elementsEqual(mergedSorted) {
-    print("Result is not matched")
-}
-*/
