@@ -32,74 +32,126 @@ func binSum(list: [Int]) -> Int {
 
 //  ---------  multy Thread -----------
 
-
-func binSumMultyTred(list: [Int], _ i: Int, _ j: Int, queue: OperationQueue, blocksSize: Int) -> (Int, Int, Int) {
-    guard i < j else {
-        guard i == j else { return (0, 0, 0) }
-            return (list[i], i, list[i])
-    }
-    let mid = Int((i + j) / 2)
-
-    var lBinSum: Int
-    var lIndexSum: Int
-    var lItemSum: Int
-    var rBinSum: Int
-    var rIndexSum: Int
-    var rItemSum: Int
+class BinSumMultyTred {
     
-    if j - i > blocksSize {
-        let (typlBinSum, typlIndexSum, typlItemSum) = binSumMultyTred(list: list, i, mid - 1, queue: queue, blocksSize: blocksSize)
-        let (typrBinSum, typrIndexSum, typrItemSum) = binSumMultyTred(list: list, mid + 1, j, queue: queue, blocksSize: blocksSize)
+    typealias ListType = UnsafeMutablePointer<Int>
+    
+    private var queue: OperationQueue
+    private var list: ListType
+    private let blockSize: Int
+    private let count: Int
+    
+    private init(list: [Int], in queue: OperationQueue, blockSize: Int) {
+        self.list = UnsafeMutablePointer(mutating: list)
+        self.count = list.count
+        self.blockSize = blockSize
+        self.queue = queue
+    }
         
-        lBinSum = typlBinSum
-        lIndexSum = typlIndexSum
-        lItemSum = typlItemSum
-        rBinSum = typrBinSum
-        rIndexSum = typrIndexSum
-        rIndexSum = typrIndexSum
-        rItemSum = typrItemSum
+    static private func binSumOne(list: inout ListType, _ i: Int, _ j: Int) -> (Int, Int, Int) {
+        guard i < j else {
+            guard i == j else { return (0, 0, 0) }
+            return (list[i], i, list[i])
+        }
+        let mid = Int((i + j) / 2)
+        let (lBinSum, lIndexSum, lItemSum) = binSumOne(list: &list, i, mid - 1)
+        let (rBinSum, rIndexSum, rItemSum) = binSumOne(list: &list, mid + 1, j)
+        let lsum = lIndexSum  &+ mid &+ rIndexSum
+        let sumItem = lItemSum &+ list[mid] &+ rItemSum
+        let rsum = list[mid] &+ sumItem
+
+        return (lsum &* (i &* lBinSum &+ j &* rBinSum) &+ rsum &* (j &* lBinSum &+ i &* rBinSum), lsum, sumItem)
     }
-    else {
-        let (typlBinSum, typlIndexSum, typlItemSum) = binSum(list: list, i, mid - 1)
-        let (typrBinSum, typrIndexSum, typrItemSum) = binSum(list: list, mid + 1, j)
-        lBinSum = typlBinSum
-        lIndexSum = typlIndexSum
-        lItemSum = typlItemSum
-        rBinSum = typrBinSum
-        rIndexSum = typrIndexSum
-        rIndexSum = typrIndexSum
-        rItemSum = typrItemSum
+
+    private func binSumMultyTred( _ i: Int, _ j: Int,  complit: @escaping (Int, Int, Int)-> Void)  -> Operation {
+        
+        guard i < j else {
+            guard i == j else {
+                let mergeOperation = BlockOperation {
+                    complit(0, 0, 0)
+                }
+                return mergeOperation
+            }
+            let itemMid = list[i]
+            let mergeOperation = BlockOperation {
+                complit(itemMid, i, itemMid)
+            }
+            return mergeOperation
+        }
+
+        let mid = Int((i + j) / 2)
+        
+        if (blockSize > j - i ) {
+            let mergeOperation = BlockOperation {
+                let (lBinSum, lIndexSum, lItemSum) = BinSumMultyTred.binSumOne(list: &self.list, i, j)
+
+                complit(lBinSum, lIndexSum, lItemSum)
+            }
+            
+            return mergeOperation
+        }
+        else {
+            var lBinSum: Int = 0
+            var lIndexSum: Int = 0
+            var lItemSum: Int = 0
+            var rBinSum: Int = 0
+            var rIndexSum: Int = 0
+            var rItemSum: Int = 0
+            let itemMid = self.list[mid]
+            
+            let left = binSumMultyTred( i, mid - 1) { (typlBinSum, typlIndexSum, typlItemSum) in
+                lBinSum = typlBinSum
+                lIndexSum = typlIndexSum
+                lItemSum = typlItemSum
+            }
+            
+            let right = binSumMultyTred( mid + 1, j) { (typrBinSum, typrIndexSum, typrItemSum) in
+                rBinSum = typrBinSum
+                rIndexSum = typrIndexSum
+                rItemSum = typrItemSum
+            }
+            
+            let mergeOperation = BlockOperation {
+                let lsum = lIndexSum  &+ mid &+ rIndexSum
+                let sumItem = lItemSum &+ itemMid &+ rItemSum
+                let rsum = itemMid &+ sumItem
+                let binSum  = (lsum &* (i &* lBinSum &+ j &* rBinSum) &+ rsum &* (j &* lBinSum &+ i &* rBinSum))
+
+                complit(binSum, lsum, sumItem)
+            }
+            
+            queue.addOperation(left)
+            queue.addOperation(right)
+            
+            mergeOperation.addDependency(left)
+            mergeOperation.addDependency(right)
+            
+            return mergeOperation
+        }
     }
+
+    static func binSum(list: [Int], in queue: OperationQueue, blockSize: Int) -> Int {
+        let count = list.count
+        let binSumMultyTred = BinSumMultyTred(list: list, in: queue, blockSize: blockSize)
+        var binSum = 0
+        let left = binSumMultyTred.binSumMultyTred(0, count - 1) { (typlBinSum, typlIndexSum, typlItemSum) in
+            binSum = typlBinSum
+        }
+        queue.addOperation(left)
+        queue.waitUntilAllOperationsAreFinished()
     
-    let left = sortInMultiThreads(!isBuffer, i, mid)
-           let right = sortInMultiThreads(!isBuffer, mid + 1, j)
-           queue.addOperation(left)
-           queue.addOperation(right)
-           
-           let mergeOperation = BlockOperation {
-               self.merge(isBuffer, i, mid: mid, j)
-           }
-           mergeOperation.addDependency(left)
-           mergeOperation.addDependency(right)
-           
-           return mergeOperation
-    
-    let lsum = lIndexSum  &+ mid &+ rIndexSum
-    let sumItem = lItemSum &+ list[mid] &+ rItemSum
-    let rsum = list[mid] &+ sumItem
-    
-    return (lsum &* (i &* lBinSum &+ j &* rBinSum) &+ rsum &* (j &* lBinSum &+ i &* rBinSum), lsum, sumItem)
+        return binSum
+    }
 }
 
 func binSum(list: [Int], in numberOfThreads: Int) -> Int {
-    let blocksSize = list.count / numberOfThreads / 2
+    let blockSize = (list.count - 1) / numberOfThreads
+    
     let queue = OperationQueue()
     queue.maxConcurrentOperationCount = numberOfThreads
-    let (lBinSum, _, _) = binSumMultyTred(list: list, 0, list.count - 1, queue: queue, blocksSize: blocksSize)
 
-    return lBinSum
+    return BinSumMultyTred.binSum(list: list, in: queue, blockSize: blockSize)
 }
-
 
 //====================Old version ===================================================
 func binSumOld(list: [Int], _ i: Int, _ j: Int) -> Int {
@@ -120,138 +172,35 @@ func binSumOld(list: [Int]) -> Int {
 }
 
 //==================== Test ==========================
-var date = Date()
-let len = 10000000
-let cores = 8
+var date: Date
+let len = 50000000
 var pt = [Int]()
 pt.reserveCapacity(len)
-date = Date()
 for _ in 0...len {
-    pt.append(Int(arc4random_uniform(10)))
-}
-var tNew = Date().timeIntervalSince(date)
-//print(pt, "------------start= \(tNew)")
-
-var s = 0.0
-
-for _ in 1...10 {
-    date = Date()
-    let rNew = binSum(list: pt)
-    tNew = Date().timeIntervalSince(date)
-    s = s + Double(tNew)
-    print("-------------rNew= \(rNew) timeNew= \(tNew)")
-    // ------ run Old true
-    if (false) {
-        date = Date()
-        let r = binSum(list: pt)
-        let t = Date().timeIntervalSince(date)
-        print("r=\(r) rN=\(rNew) \( r == rNew) t=\(t)  tN=\(tNew)")
-    }
-}
-print("avarrage time =\(s/10)")
-
-
-
-
-
-
-//---------------------------------------------
-
-class MergeSort {
-    typealias ListType = UnsafeMutablePointer<Int>
-    
-    private var queue: OperationQueue
-    
-    private var a: ListType
-    private var b: ListType
-    private let count: Int
-    private let blockSize: Int
-    
-    private init(list: [Int], in queue: OperationQueue, blockSize: Int) {
-        self.a = UnsafeMutablePointer(mutating: list)
-        self.b = UnsafeMutablePointer(mutating: list)
-        
-        self.count = list.count
-        self.blockSize = blockSize
-        self.queue = queue
-    }
-    
-    private func merge(_ isBuffer: Bool, _ i: Int, mid: Int, _ j: Int) {
-       
-    }
-    
-    static private func insertionSort(a: inout ListType, _ i: Int, _ j: Int) {
-        guard i < j else {return}
-        for k in i + 1...j {
-            let value = a[k]
-            var j = k - 1
-            while j >= i && a[j] > value {
-                a[j + 1] = a[j]
-                j -= 1
-            }
-            a[j + 1] = value
-        }
-    }
-    
-    private func sortInOneThread(_ isBuffer: Bool, _ i: Int, _ j: Int) {
-        guard j - i > 10 else {
-            if !isBuffer {
-                MergeSort.insertionSort(a: &self.a, i, j)
-            } else {
-                MergeSort.insertionSort(a: &self.b, i, j)
-            }
-            return
-        }
-        
-        let mid = (i + j) / 2
-        sortInOneThread(!isBuffer, i, mid)
-        sortInOneThread(!isBuffer, mid + 1, j)
-        
-        merge(isBuffer, i, mid: mid, j)
-    }
-    
-    private func sortInMultiThreads(_ isBuffer: Bool, _ i: Int, _ j: Int) -> Operation {
-        guard j - i > blockSize else {
-            return BlockOperation {
-                self.sortInOneThread(!isBuffer, i, j)
-            }
-        }
-        
-        let mid = (i + j) / 2
-        let left = sortInMultiThreads(!isBuffer, i, mid)
-        let right = sortInMultiThreads(!isBuffer, mid + 1, j)
-        queue.addOperation(left)
-        queue.addOperation(right)
-        
-        let mergeOperation = BlockOperation {
-            self.merge(isBuffer, i, mid: mid, j)
-        }
-        mergeOperation.addDependency(left)
-        mergeOperation.addDependency(right)
-        
-        return mergeOperation
-    }
-    
-    private func sortedList() -> [Int] {
-        queue.addOperation(self.sortInMultiThreads(false, 0, self.count - 1))
-        queue.waitUntilAllOperationsAreFinished()
-        return Array(UnsafeBufferPointer<Int>(start: self.a, count: self.count))
-    }
-    
-    static func sort(list: [Int], in queue: OperationQueue, blockSize: Int) -> [Int] {
-        guard list.count > 1 else {return list}
-        
-        let mergeSort = MergeSort(list: list, in: queue, blockSize: blockSize)
-        return mergeSort.sortedList()
-    }
+    pt.append(Int(arc4random_uniform(1000000000)))
 }
 
-func sort(list: [Int], in cores: Int) -> [Int] {
-    let blocksSize = list.count / cores
-    
-    let queue = OperationQueue()
-    queue.maxConcurrentOperationCount = cores
-    
-    return MergeSort.sort(list: list, in: queue, blockSize: blocksSize)
-}
+// ------------ Optimization --------------------
 
+date = Date()
+let rNew = binSum(list: pt)
+let tNew = Date().timeIntervalSince(date)
+print("---- tN=\(tNew)  ")
+
+// ----------------- Multithreading --------------
+
+let cores = 4
+date = Date()
+let rNewMult = binSum(list: pt, in: cores)
+let tNewMult = Date().timeIntervalSince(date)
+print("---- tNewMult= \(tNewMult) ")
+
+print("--------------- \n \( rNew == rNewMult) \n  tN=\(tNew) tNM=\(tNewMult) ")
+
+// ----------------- Old version ------------------
+/*
+date = Date()
+let r = binSumOld(list: pt)
+let t = Date().timeIntervalSince(date)
+print("--------------- \n \( r == rNew) \( rNew == rNewMult) \n t=\(t)  tN=\(tNew) tNM=\(tNewMult)")
+*/
